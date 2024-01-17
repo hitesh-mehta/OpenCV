@@ -1,0 +1,60 @@
+import cv2
+import numpy as np
+
+# Initialize the video capture 
+cap = cv2.VideoCapture(0)  
+
+# Defining the lower and upper bounds for red color in HSV
+lower_red = np.array([0, 100, 100])
+upper_red = np.array([10, 255, 255])
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Convert the frame to the HSV color space
+    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Create a mask to isolate the red regions
+    red_mask = cv2.inRange(hsv_frame, lower_red, upper_red)
+
+
+    # Find contours in the mask
+    contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Iterate through the contours to find the 7-sided arrow
+    for contour in contours:
+        epsilon = 0.04 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+
+        if len(approx) == 7:
+            # Draw a bounding box around the arrow
+            x, y, w, h = cv2.boundingRect(approx)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            # Draw the arrow contour
+            cv2.drawContours(frame, [approx], 0, (0, 0, 255), 2)
+
+            # Calculate the angle with the vertical axis
+            try:
+                moments = cv2.moments(approx)
+                cx = int(moments['m10'] / moments['m00'])
+                cy = int(moments['m01'] / moments['m00'])
+                angle_rad = np.arctan2(cy - (y + h // 2), cx - (x + w // 2))
+                angle_deg = np.degrees(angle_rad)
+            except:
+                angle_deg = 90.0
+            cv2.putText(frame,str(angle_deg),(x,y),cv2.FONT_HERSHEY_COMPLEX,1,(255,255,255),2)
+
+
+    # Display the result
+    cv2.imshow('Frame', frame)
+
+    # Press 'q' to exit the video stream
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release the video capture and close all windows
+cap.release()
+cv2.destroyAllWindows()
